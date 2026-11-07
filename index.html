@@ -1,0 +1,431 @@
+<!doctype html>
+<html lang="nl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Nakijkcalculator</title>
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Nakijken">
+<meta name="theme-color" content="#f5f7fa" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#11161e" media="(prefers-color-scheme: dark)">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icon-180.png">
+<link rel="icon" href="icon-192.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&family=DM+Mono:wght@400;500&family=Schibsted+Grotesk:wght@400;500;600&display=swap">
+<style>
+/* Layout: one narrow working column on squared exercise-book paper — settings strip, display, keypad, conversion table */
+:root {
+  --paper: #f5f7fa;
+  --grid: #dfe6ef;
+  --card: #ffffff;
+  --ink: #1b2533;
+  --muted: #5d6b7e;
+  --line: #d3dbe6;
+  --key: #eef2f7;
+  --key-hover: #e2e8f1;
+  --accent: #2346a8;
+  --accent-ink: #ffffff;
+  --pass: #1d7a4c;
+  --pass-bg: #e3f3ea;
+  --fail: #c2342b;
+  --fail-bg: #fbe7e5;
+  --warn: #8a5a00;
+  --font-display: "Bricolage Grotesque", "Segoe UI", system-ui, sans-serif;
+  --font-body: "Schibsted Grotesk", "Segoe UI", system-ui, sans-serif;
+  --font-num: "DM Mono", ui-monospace, "SFMono-Regular", Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --paper: #11161e; --grid: #1a2230; --card: #171e29; --ink: #e6ecf4; --muted: #95a3b6;
+    --line: #2a3445; --key: #212a38; --key-hover: #2a3546; --accent: #7d9cff; --accent-ink: #0d1422;
+    --pass: #5fd39a; --pass-bg: #163326; --fail: #ff8a80; --fail-bg: #3a1c1b; --warn: #f0bf5a;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --paper: #11161e; --grid: #1a2230; --card: #171e29; --ink: #e6ecf4; --muted: #95a3b6;
+  --line: #2a3445; --key: #212a38; --key-hover: #2a3546; --accent: #7d9cff; --accent-ink: #0d1422;
+  --pass: #5fd39a; --pass-bg: #163326; --fail: #ff8a80; --fail-bg: #3a1c1b; --warn: #f0bf5a;
+  color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+html, body { min-height: 100%; }
+body {
+  background-color: var(--paper);
+  background-image:
+    linear-gradient(var(--grid) 1px, transparent 1px),
+    linear-gradient(90deg, var(--grid) 1px, transparent 1px);
+  background-size: 24px 24px;
+  color: var(--ink);
+  font-family: var(--font-body);
+  font-size: 15px;
+  line-height: 1.45;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-top: calc(env(safe-area-inset-top, 0px) + 20px);
+  padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 32px);
+}
+.wrap { max-width: 460px; margin: 0 auto; display: flex; flex-direction: column; gap: 16px; }
+
+header { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+h1 { font-family: var(--font-display); font-weight: 800; font-size: 1.5rem; margin: 0; letter-spacing: -0.01em; text-wrap: balance; }
+.keys-hint { font-size: 0.8rem; color: var(--muted); }
+kbd { font-family: var(--font-num); font-size: 0.75rem; border: 1px solid var(--line); border-bottom-width: 2px; border-radius: 4px; padding: 0 4px; background: var(--card); color: var(--ink); }
+
+.card { background: var(--card); border: 1px solid var(--line); border-radius: 14px; }
+
+/* Settings strip */
+.settings { padding: 12px 14px; display: flex; flex-wrap: wrap; gap: 10px 18px; align-items: center; }
+.field { display: flex; align-items: center; gap: 6px; font-size: 0.85rem; color: var(--muted); }
+.field input, .field select {
+  font-family: var(--font-num); font-size: 0.95rem; color: var(--ink);
+  background: var(--key); border: 1px solid var(--line); border-radius: 6px;
+  padding: 4px 6px; width: 4.2em; text-align: right;
+}
+.field select { width: auto; text-align: left; }
+.field input:focus-visible, .field select:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.field input[aria-invalid="true"] { border-color: var(--fail); }
+
+/* Display */
+.display { padding: 18px 18px 16px; display: flex; flex-direction: column; gap: 6px; min-height: 190px; position: relative; }
+.tape {
+  font-family: var(--font-num); font-size: 1.05rem; color: var(--muted);
+  min-height: 1.6em; overflow-wrap: anywhere; text-align: right;
+}
+.tape .placeholder { opacity: 0.6; }
+.big { display: flex; align-items: baseline; justify-content: flex-end; gap: 10px; }
+.big-num { font-family: var(--font-display); font-weight: 800; font-size: 4.2rem; line-height: 1; font-variant-numeric: tabular-nums; letter-spacing: -0.02em; }
+.big-unit { font-size: 0.95rem; color: var(--muted); }
+.meta { display: flex; justify-content: flex-end; align-items: center; gap: 8px; flex-wrap: wrap; font-family: var(--font-num); font-size: 0.9rem; color: var(--muted); min-height: 1.6em; }
+.pill { font-family: var(--font-body); font-weight: 600; font-size: 0.75rem; letter-spacing: 0.04em; text-transform: uppercase; padding: 2px 9px; border-radius: 999px; }
+.pill.pass { color: var(--pass); background: var(--pass-bg); }
+.pill.fail { color: var(--fail); background: var(--fail-bg); }
+.warn { color: var(--warn); font-family: var(--font-body); font-size: 0.82rem; }
+.display.result .big-num.pass { color: var(--pass); }
+.display.result .big-num.fail { color: var(--fail); }
+.prev { border-top: 1px dashed var(--line); margin-top: 6px; padding-top: 8px; font-size: 0.82rem; color: var(--muted); display: flex; justify-content: space-between; gap: 8px; }
+.prev span:last-child { font-family: var(--font-num); }
+
+/* Keypad */
+.pad { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+.pad button {
+  font-family: var(--font-num); font-size: 1.35rem; font-weight: 500; color: var(--ink);
+  background: var(--key); border: 1px solid var(--line); border-radius: 10px;
+  height: 58px; cursor: pointer; transition: background 80ms;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation; -webkit-user-select: none; user-select: none;
+}
+.pad button:hover { background: var(--key-hover); }
+.pad button:active { transform: translateY(1px); }
+.pad button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.pad .op { color: var(--accent); }
+.pad .eq { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); grid-row: span 2; height: auto; }
+.pad .eq:hover { background: var(--accent); filter: brightness(1.08); }
+.pad .clr { font-family: var(--font-body); font-size: 1rem; font-weight: 600; color: var(--muted); }
+.pad .zero { grid-column: span 2; }
+
+/* Conversion table */
+details.table { padding: 4px 14px 14px; }
+details.table summary { cursor: pointer; padding: 10px 0 8px; font-weight: 600; font-size: 0.95rem; display: flex; justify-content: space-between; gap: 8px; list-style: none; }
+details.table summary::-webkit-details-marker { display: none; }
+details.table summary .sub { font-weight: 400; color: var(--muted); font-size: 0.8rem; }
+details.table summary::after { content: "+"; font-family: var(--font-num); color: var(--muted); }
+details[open].table summary::after { content: "–"; }
+.scale { display: grid; grid-template-columns: repeat(auto-fill, minmax(62px, 1fr)); gap: 4px; max-height: 320px; overflow-y: auto; }
+.cell { display: flex; justify-content: space-between; gap: 4px; font-family: var(--font-num); font-size: 0.8rem; padding: 4px 6px; border-radius: 5px; background: var(--key); font-variant-numeric: tabular-nums; }
+.cell .p { color: var(--muted); }
+.cell.fail .g { color: var(--fail); }
+.cell.cut { outline: 1px solid var(--accent); }
+.cell.hit { background: var(--accent); }
+.cell.hit .p, .cell.hit .g { color: var(--accent-ink); }
+
+footer { font-size: 0.78rem; color: var(--muted); text-align: center; }
+
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+@media (max-width: 380px) { .big-num { font-size: 3.4rem; } .pad button { height: 52px; } }
+
+html { -webkit-text-size-adjust: 100%; }
+body { margin: 0; overscroll-behavior: none; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>Nakijkcalculator</h1>
+    <span class="keys-hint"><kbd>+</kbd> optellen · <kbd>Enter</kbd> cijfer · <kbd>Esc</kbd> wissen</span>
+  </header>
+
+  <section class="card settings" aria-label="Normering">
+    <label class="field" for="maxPts">Max <input id="maxPts" inputmode="decimal" autocomplete="off"> pt</label>
+    <label class="field" for="cutPct">Cesuur <input id="cutPct" inputmode="decimal" autocomplete="off"> %</label>
+    <label class="field" for="cutGrade">= cijfer <input id="cutGrade" inputmode="decimal" autocomplete="off"></label>
+    <label class="field" for="decimals">Afronden
+      <select id="decimals">
+        <option value="0">heel</option>
+        <option value="1">1 dec.</option>
+        <option value="2">2 dec.</option>
+      </select>
+    </label>
+  </section>
+
+  <section class="card display" id="display" aria-live="polite">
+    <div class="tape" id="tape"></div>
+    <div class="big"><span class="big-num" id="big">0</span><span class="big-unit" id="bigUnit">pt</span></div>
+    <div class="meta" id="meta"></div>
+    <div class="prev" id="prev" hidden><span>Vorige</span><span id="prevText"></span></div>
+  </section>
+
+  <section class="pad" aria-label="Toetsenbord">
+    <button type="button" data-k="7">7</button>
+    <button type="button" data-k="8">8</button>
+    <button type="button" data-k="9">9</button>
+    <button type="button" data-k="Backspace" class="clr" aria-label="Wis laatste teken">&#9003;</button>
+    <button type="button" data-k="4">4</button>
+    <button type="button" data-k="5">5</button>
+    <button type="button" data-k="6">6</button>
+    <button type="button" data-k="+" class="op">+</button>
+    <button type="button" data-k="1">1</button>
+    <button type="button" data-k="2">2</button>
+    <button type="button" data-k="3">3</button>
+    <button type="button" data-k="-" class="op">&minus;</button>
+    <button type="button" data-k="Escape" class="clr">C</button>
+    <button type="button" data-k="0">0</button>
+    <button type="button" data-k=",">,</button>
+    <button type="button" data-k="=" class="eq" aria-label="Bereken cijfer">=</button>
+  </section>
+
+  <details class="card table" id="tableBox" open>
+    <summary><span>Omzettingstabel <span class="sub" id="tableSub"></span></span></summary>
+    <div class="scale" id="scale"></div>
+  </details>
+
+  <footer>Lineair in twee delen: 0 pt = 1,0 · cesuur = ingesteld cijfer · max = 10,0. Instellingen blijven bewaard op dit apparaat.</footer>
+</div>
+
+<script>
+(function () {
+  "use strict";
+
+  // ---------- grading ----------
+  function rawGrade(score, max, cutPct, cutGrade) {
+    if (!(max > 0)) return NaN;
+    var s = score / max;
+    var c = cutPct / 100;
+    var g;
+    if (s <= c) g = 1 + (cutGrade - 1) * (s / c);
+    else g = cutGrade + (10 - cutGrade) * ((s - c) / (1 - c));
+    return Math.min(10, Math.max(1, g));
+  }
+  function roundHalfUp(x, d) {
+    var f = Math.pow(10, d);
+    return Math.round(x * f + 1e-9) / f;
+  }
+  function grade(score, cfg) {
+    return roundHalfUp(rawGrade(score, cfg.max, cfg.cutPct, cfg.cutGrade), cfg.decimals);
+  }
+  function fmt(n, d) {
+    if (!isFinite(n)) return "–";
+    var s = d == null ? String(roundHalfUp(n, 2)) : n.toFixed(d);
+    return s.replace(".", ",");
+  }
+
+  // self-test
+  (function () {
+    var cfg = { max: 40, cutPct: 66.5, cutGrade: 6, decimals: 1 };
+    console.assert(grade(0, cfg) === 1, "0 pt -> 1,0");
+    console.assert(grade(26.6, cfg) === 6, "cesuur -> 6,0");
+    console.assert(grade(40, cfg) === 10, "max -> 10,0");
+    console.assert(grade(32, cfg) === 7.6, "32/40 -> 7,6");
+    console.assert(grade(45, cfg) === 10, "boven max -> 10,0");
+  })();
+
+  // ---------- settings ----------
+  var DEFAULTS = { max: 40, cutPct: 66.5, cutGrade: 6, decimals: 1 };
+  var KEY = "nakijkcalculator.v1";
+  var cfg = Object.assign({}, DEFAULTS);
+  try {
+    var saved = JSON.parse(localStorage.getItem(KEY) || "null");
+    if (saved && typeof saved === "object") cfg = Object.assign(cfg, saved);
+  } catch (e) {}
+  function save() { try { localStorage.setItem(KEY, JSON.stringify(cfg)); } catch (e) {} }
+
+  var $ = function (id) { return document.getElementById(id); };
+  var inMax = $("maxPts"), inCut = $("cutPct"), inCutG = $("cutGrade"), inDec = $("decimals");
+  inMax.value = fmt(cfg.max); inCut.value = fmt(cfg.cutPct); inCutG.value = fmt(cfg.cutGrade); inDec.value = String(cfg.decimals);
+
+  function num(v) { var n = parseFloat(String(v).replace(",", ".")); return isFinite(n) ? n : NaN; }
+  function bind(el, key, ok) {
+    el.addEventListener("input", function () {
+      var n = num(el.value);
+      var valid = ok(n);
+      el.setAttribute("aria-invalid", valid ? "false" : "true");
+      if (valid) { cfg[key] = n; save(); render(); renderTable(); }
+    });
+    el.addEventListener("keydown", function (e) { if (e.key === "Enter" || e.key === "Escape") { el.blur(); } });
+  }
+  bind(inMax, "max", function (n) { return n > 0 && n <= 1000; });
+  bind(inCut, "cutPct", function (n) { return n > 0 && n < 100; });
+  bind(inCutG, "cutGrade", function (n) { return n > 1 && n < 10; });
+  inDec.addEventListener("change", function () { cfg.decimals = parseInt(inDec.value, 10); save(); render(); renderTable(); });
+
+  // ---------- calculator state ----------
+  var expr = "";        // e.g. "3+4+2,5"
+  var mode = "entry";   // "entry" | "result"
+  var last = null;      // {score, grade}
+  var prev = null;
+
+  function sumOf(e) {
+    var clean = e.replace(/[+\-]$/, "");
+    if (!clean) return 0;
+    var parts = clean.match(/[+\-]?[^+\-]+/g) || [];
+    var total = 0;
+    parts.forEach(function (p) { var n = num(p.replace(/^\+/, "")); if (isFinite(n)) total += n; });
+    return roundHalfUp(total, 4);
+  }
+  function lastNumber(e) { var m = e.match(/[^+\-]*$/); return m ? m[0] : ""; }
+
+  function press(k) {
+    if (mode === "result") {
+      if (k === "Enter" || k === "=" || k === "Escape") { clearAll(); return; }
+      if (/^[0-9]$/.test(k) || k === "," ) { clearAll(); }
+      else if (k === "+" || k === "-") { expr = fmt(last.score); mode = "entry"; }
+      else if (k === "Backspace") { mode = "entry"; render(); return; }
+      else return;
+    }
+    if (/^[0-9]$/.test(k)) {
+      var ln = lastNumber(expr);
+      if (ln === "0") expr = expr.slice(0, -1);
+      expr += k;
+    } else if (k === "," || k === ".") {
+      var ln2 = lastNumber(expr);
+      if (ln2.indexOf(",") !== -1) return;
+      expr += ln2 === "" ? "0," : ",";
+    } else if (k === "+" || k === "-") {
+      if (expr === "") { if (k === "-") expr = "-"; return render(); }
+      if (/[+\-,]$/.test(expr)) expr = expr.slice(0, -1);
+      if (expr === "") return render();
+      expr += k;
+    } else if (k === "Backspace") {
+      expr = expr.slice(0, -1);
+    } else if (k === "Escape") {
+      clearAll(); return;
+    } else if (k === "Enter" || k === "=") {
+      if (expr.replace(/[+\-,]/g, "") === "") return;
+      var score = sumOf(expr);
+      last = { score: score, grade: grade(score, cfg), tape: expr.replace(/[+\-]$/, "") };
+      mode = "result";
+    }
+    render();
+  }
+  function clearAll() {
+    if (mode === "result" && last) prev = last;
+    expr = ""; mode = "entry"; last = null;
+    render(); renderTable();
+  }
+
+  function prettyExpr(e) {
+    return e.replace(/([+\-])/g, function (m, op, i) { return i === 0 ? (op === "-" ? "−" : op) : " " + (op === "-" ? "−" : "+") + " "; });
+  }
+
+  var disp = $("display"), tape = $("tape"), big = $("big"), bigUnit = $("bigUnit"), meta = $("meta");
+  function render() {
+    disp.classList.toggle("result", mode === "result");
+    if (mode === "result" && last) {
+      var g = last.grade, pass = g >= 5.5;
+      tape.textContent = prettyExpr(last.tape) + " = " + fmt(last.score);
+      big.textContent = fmt(g, cfg.decimals);
+      big.className = "big-num " + (pass ? "pass" : "fail");
+      bigUnit.textContent = "";
+      var pct = cfg.max > 0 ? (last.score / cfg.max) * 100 : NaN;
+      meta.innerHTML = "";
+      var t = document.createElement("span");
+      t.textContent = fmt(last.score) + " / " + fmt(cfg.max) + " pt · " + fmt(pct, 1) + "%";
+      var pill = document.createElement("span");
+      pill.className = "pill " + (pass ? "pass" : "fail");
+      pill.textContent = pass ? "voldoende" : "onvoldoende";
+      meta.appendChild(t); meta.appendChild(pill);
+      if (last.score > cfg.max) {
+        var w = document.createElement("span"); w.className = "warn"; w.textContent = "Meer punten dan het maximum";
+        meta.appendChild(w);
+      }
+    } else {
+      if (expr) { tape.textContent = prettyExpr(expr); }
+      else { tape.innerHTML = '<span class="placeholder">bv. 3 + 4 + 2,5</span>'; }
+      big.textContent = fmt(sumOf(expr));
+      big.className = "big-num";
+      bigUnit.textContent = "pt";
+      var s = sumOf(expr);
+      meta.innerHTML = "";
+      if (s > cfg.max) {
+        var w2 = document.createElement("span"); w2.className = "warn"; w2.textContent = "Al meer dan " + fmt(cfg.max) + " pt";
+        meta.appendChild(w2);
+      } else if (expr) {
+        meta.textContent = "van " + fmt(cfg.max) + " · Enter voor cijfer";
+      }
+    }
+    var pv = $("prev");
+    if (prev) {
+      pv.hidden = false;
+      $("prevText").textContent = fmt(prev.score) + " pt → " + fmt(prev.grade, cfg.decimals);
+    } else pv.hidden = true;
+  }
+
+  // ---------- conversion table ----------
+  function renderTable() {
+    var sc = $("scale");
+    sc.innerHTML = "";
+    var max = cfg.max;
+    if (!(max > 0)) return;
+    var step = max > 200 ? Math.ceil(max / 200) : (max <= 30 ? 0.5 : 1);
+    var cutPts = max * cfg.cutPct / 100;
+    $("tableSub").textContent = "· cesuur " + fmt(cutPts) + " pt";
+    var hitScore = mode === "result" && last ? last.score : null;
+    var frag = document.createDocumentFragment();
+    var cutMarked = false;
+    for (var p = 0; p <= max + 1e-9; p = roundHalfUp(p + step, 4)) {
+      var g = grade(p, cfg);
+      var cell = document.createElement("div");
+      cell.className = "cell" + (g < 5.5 ? " fail" : "");
+      if (!cutMarked && p >= cutPts - 1e-9) { cell.className += " cut"; cell.title = "Eerste score op of boven de cesuur"; cutMarked = true; }
+      if (hitScore !== null && Math.abs(p - hitScore) < 1e-9) cell.className += " hit";
+      cell.innerHTML = '<span class="p">' + fmt(p) + '</span><span class="g">' + fmt(g, cfg.decimals) + "</span>";
+      frag.appendChild(cell);
+    }
+    sc.appendChild(frag);
+  }
+
+  // ---------- input wiring ----------
+  document.addEventListener("keydown", function (e) {
+    var t = e.target;
+    if (t && (t.tagName === "INPUT" || t.tagName === "SELECT" || t.tagName === "TEXTAREA")) return;
+    if (e.ctrlKey || e.metaKey || e.altKey) return;
+    var k = e.key;
+    if (k === "NumpadEnter") k = "Enter";
+    if (k === "*" || k === "/") return;
+    if (k === ".") k = ",";
+    if (/^[0-9]$/.test(k) || k === "," || k === "+" || k === "-" || k === "=" || k === "Enter" || k === "Backspace" || k === "Escape" || k === "Delete") {
+      e.preventDefault();
+      if (k === "Delete") k = "Escape";
+      if (t && t.tagName === "BUTTON") t.blur();
+      press(k);
+      renderTable();
+    }
+  });
+  document.querySelectorAll(".pad button").forEach(function (b) {
+    b.addEventListener("click", function () { press(b.getAttribute("data-k")); b.blur(); render(); renderTable(); });
+  });
+
+  render();
+  renderTable();
+})();
+</script>
+<script>
+if ("serviceWorker" in navigator) { window.addEventListener("load", function () { navigator.serviceWorker.register("sw.js").catch(function () {}); }); }
+</script>
+</body>
+</html>
